@@ -17,7 +17,7 @@ export const authRouter = Router();
 
 authRouter.get("/status", (req, res) => {
   const configured = kyrosAuthConfigured();
-  res.json({ data: { provider: config.authProvider, protected: Boolean(req.identity), misconfigured: !configured, authenticated: Boolean(req.identity), username: req.identity?.displayName || req.identity?.username || req.identity?.subject || null } });
+  res.json({ data: { provider: config.authProvider, protected: configured, misconfigured: !configured, authenticated: Boolean(req.identity), username: req.identity?.displayName || req.identity?.username || req.identity?.subject || null } });
 });
 
 authRouter.get("/kyros", (_req, res, next) => {
