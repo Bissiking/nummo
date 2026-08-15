@@ -103,7 +103,7 @@ async function initialize() {
     hydrateGlobal();
     renderDashboard();
     configureForms();
-    await configureAuth();
+    configureAuth();
     route();
   } catch (error) {
     showError(error.message);
@@ -564,12 +564,7 @@ function configureForms() {
   );
 }
 
-async function configureAuth() {
-  const status = await api("/api/auth/status");
-  const authenticatedSession = status.authenticated && status.protected;
-  $("#sidebar-logout").hidden = !authenticatedSession;
-  $("#account-source").textContent =
-    status.provider === "kyros" ? "Compte Kyros" : "Registre local";
+function configureAuth() {
   $("#sidebar-logout").addEventListener("click", logout);
 }
 

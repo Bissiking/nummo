@@ -1,5 +1,6 @@
 // tests/api.test.js
 import fs from "node:fs";
+import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
@@ -13,13 +14,34 @@ import * as planningService from "../src/services/planning-service.js";
 import * as projectsService from "../src/services/projects-service.js";
 
 let app;
+let agent;
 let directory;
 let accountId;
+
+const KYROS_JWT_SECRET = "jwt-test-secret";
+
+function kyrosToken(sub, ttlSeconds = 3600) {
+  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+  const payload = Buffer.from(JSON.stringify({
+    iss: "kyros",
+    aud: "kyros-modules",
+    resource_aud: "kyros:sso:nummo",
+    sub,
+    client_id: "cli_test",
+    scope: "profile",
+    username: sub,
+    display_name: sub,
+    exp: Math.floor(Date.now() / 1000) + ttlSeconds
+  })).toString("base64url");
+  const signature = crypto.createHmac("sha256", KYROS_JWT_SECRET).update(`${header}.${payload}`).digest("base64url");
+  return `${header}.${payload}.${signature}`;
+}
 
 before(() => {
   directory = fs.mkdtempSync(path.join(os.tmpdir(), "nummo-test-"));
   initializeDatabase(path.join(directory, "test.sqlite"));
   app = createApp();
+  agent = request.agent(app).set("Cookie", `nummo_kyros_access=${encodeURIComponent(kyrosToken("usr_test"))}`);
 });
 
 after(() => {
@@ -28,62 +50,62 @@ after(() => {
 });
 
 test("la base crée un compte et les catégories système", async () => {
-  const response = await request(app).get("/api/accounts").expect(200);
+  const response = await agent.get("/api/accounts").expect(200);
   assert.equal(response.body.data.length, 1);
   accountId = response.body.data[0].id;
-  const bootstrap = await request(app).get(`/api/accounts/${accountId}/bootstrap`).expect(200);
+  const bootstrap = await agent.get(`/api/accounts/${accountId}/bootstrap`).expect(200);
   assert.ok(bootstrap.body.data.categories.length > 40);
   assert.equal(bootstrap.body.data.dashboard.balance_cents, 0);
 });
 
-test("la page de connexion décrit honnêtement le mode local", async () => {
-  const page = await request(app).get("/login").expect(200);
+test("la page de connexion présente l'accès Kyros", async () => {
+  const page = await agent.get("/login").expect(200);
   assert.match(page.text, /Ouvrir le registre/);
-  const status = await request(app).get("/api/auth/status").expect(200);
-  assert.equal(status.body.data.provider, "local");
-  assert.equal(status.body.data.protected, false);
+  const status = await agent.get("/api/auth/status").expect(200);
+  assert.equal(status.body.data.provider, "kyros");
+  assert.equal(status.body.data.authenticated, true);
 });
 
 test("un retrait supérieur au solde est refusé", async () => {
-  const response = await request(app).post(`/api/accounts/${accountId}/transactions`).send({ type: "withdrawal", amount_cents: 100, description: "Retrait impossible", transaction_date: "2026-08-15" }).expect(422);
+  const response = await agent.post(`/api/accounts/${accountId}/transactions`).send({ type: "withdrawal", amount_cents: 100, description: "Retrait impossible", transaction_date: "2026-08-15" }).expect(422);
   assert.equal(response.body.error.code, "insufficient_balance");
 });
 
 test("une dépense déduite crée puis supprime son retrait lié", async () => {
-  await request(app).post(`/api/accounts/${accountId}/transactions`).send({ type: "deposit", amount_cents: 50000, description: "Dépôt initial", transaction_date: "2026-08-15" }).expect(201);
-  const categories = (await request(app).get(`/api/accounts/${accountId}/categories`)).body.data;
+  await agent.post(`/api/accounts/${accountId}/transactions`).send({ type: "deposit", amount_cents: 50000, description: "Dépôt initial", transaction_date: "2026-08-15" }).expect(201);
+  const categories = (await agent.get(`/api/accounts/${accountId}/categories`)).body.data;
   const fuel = categories.find((category) => category.name === "Carburant");
-  const created = await request(app).post(`/api/accounts/${accountId}/expenses`).send({ category_id: fuel.id, amount_cents: 7234, description: "Carburant", expense_date: "2026-08-15", expense_type: "VARIABLE", deduct_from_balance: true }).expect(201);
+  const created = await agent.post(`/api/accounts/${accountId}/expenses`).send({ category_id: fuel.id, amount_cents: 7234, description: "Carburant", expense_date: "2026-08-15", expense_type: "VARIABLE", deduct_from_balance: true }).expect(201);
   assert.ok(created.body.data.linked_transaction_id);
-  let dashboard = await request(app).get(`/api/accounts/${accountId}/dashboard`).expect(200);
+  let dashboard = await agent.get(`/api/accounts/${accountId}/dashboard`).expect(200);
   assert.equal(dashboard.body.data.balance_cents, 42766);
-  await request(app).delete(`/api/accounts/${accountId}/expenses/${created.body.data.id}`).expect(204);
-  dashboard = await request(app).get(`/api/accounts/${accountId}/dashboard`).expect(200);
+  await agent.delete(`/api/accounts/${accountId}/expenses/${created.body.data.id}`).expect(204);
+  dashboard = await agent.get(`/api/accounts/${accountId}/dashboard`).expect(200);
   assert.equal(dashboard.body.data.balance_cents, 50000);
 });
 
 test("les validations refusent les montants nuls et dates impossibles", async () => {
-  await request(app).post(`/api/accounts/${accountId}/transactions`).send({ type: "deposit", amount_cents: 0, description: "Invalide", transaction_date: "2026-08-15" }).expect(400);
-  await request(app).post(`/api/accounts/${accountId}/transactions`).send({ type: "deposit", amount_cents: 100, description: "Invalide", transaction_date: "2026-02-31" }).expect(400);
+  await agent.post(`/api/accounts/${accountId}/transactions`).send({ type: "deposit", amount_cents: 0, description: "Invalide", transaction_date: "2026-08-15" }).expect(400);
+  await agent.post(`/api/accounts/${accountId}/transactions`).send({ type: "deposit", amount_cents: 100, description: "Invalide", transaction_date: "2026-02-31" }).expect(400);
 });
 
 test("les exports CSV échappent et livrent les données", async () => {
-  const response = await request(app).get(`/api/accounts/${accountId}/export/transactions.csv`).expect(200);
+  const response = await agent.get(`/api/accounts/${accountId}/export/transactions.csv`).expect(200);
   assert.match(response.headers["content-type"], /text\/csv/);
   assert.match(response.text, /Dépôt initial/);
 });
 
 test("l'historique filtre les types et les montants", async () => {
-  const deposits = await request(app).get(`/api/accounts/${accountId}/history?type=deposit&min_amount_cents=50000`).expect(200);
+  const deposits = await agent.get(`/api/accounts/${accountId}/history?type=deposit&min_amount_cents=50000`).expect(200);
   assert.equal(deposits.body.data.length, 1);
   assert.equal(deposits.body.data[0].subtype, "deposit");
-  const expenses = await request(app).get(`/api/accounts/${accountId}/history?type=expense`).expect(200);
+  const expenses = await agent.get(`/api/accounts/${accountId}/history?type=expense`).expect(200);
   assert.equal(expenses.body.data.length, 0);
 });
 
 test("les périodes statistiques invalides sont refusées", async () => {
-  await request(app).get(`/api/accounts/${accountId}/comparison?month_a=2026-13&month_b=2026-08`).expect(400);
-  await request(app).get(`/api/accounts/${accountId}/category-analysis?period=custom&from=2026-09-01&to=2026-08-01`).expect(400);
+  await agent.get(`/api/accounts/${accountId}/comparison?month_a=2026-13&month_b=2026-08`).expect(400);
+  await agent.get(`/api/accounts/${accountId}/category-analysis?period=custom&from=2026-09-01&to=2026-08-01`).expect(400);
 });
 
 test("l'adaptateur Kyros valide le handshake et les claims du jeton", () => {
@@ -125,22 +147,22 @@ test("l'adaptateur Kyros valide le handshake et les claims du jeton", () => {
 });
 
 test("l'API transforme une formule projet en récurrence suivie", async () => {
-  const calculated = await request(app).post("/api/projects/calculate").send({ target_cents: 100000, initial_cents: 10000, monthly_cents: 15000, first_due_date: "2026-09-15", calculation_mode: "auto" }).expect(200);
+  const calculated = await agent.post("/api/projects/calculate").send({ target_cents: 100000, initial_cents: 10000, monthly_cents: 15000, first_due_date: "2026-09-15", calculation_mode: "auto" }).expect(200);
   const selected = calculated.body.data.scenarios.find((item) => item.key === "balanced");
-  const created = await request(app).post(`/api/accounts/${accountId}/projects`).send({ name: "Nouveau canapé", target_cents: 100000, initial_cents: 10000, monthly_cents: selected.monthly_cents, first_due_date: "2026-09-15", calculation_mode: "auto", contribution_mode: "manual", scenario_key: selected.key }).expect(201);
+  const created = await agent.post(`/api/accounts/${accountId}/projects`).send({ name: "Nouveau canapé", target_cents: 100000, initial_cents: 10000, monthly_cents: selected.monthly_cents, first_due_date: "2026-09-15", calculation_mode: "auto", contribution_mode: "manual", scenario_key: selected.key }).expect(201);
   assert.equal(created.body.data.remaining_installments, 6);
-  const contribution = await request(app).post(`/api/accounts/${accountId}/projects/${created.body.data.id}/contributions`).expect(200);
+  const contribution = await agent.post(`/api/accounts/${accountId}/projects/${created.body.data.id}/contributions`).expect(200);
   assert.equal(contribution.body.data.saved_cents, 25000);
   assert.equal(contribution.body.data.confirmed_saved_cents, 25000);
   assert.equal(contribution.body.data.projected_cents, 0);
-  const recurring = await request(app).get(`/api/accounts/${accountId}/recurring-expenses`).expect(200);
+  const recurring = await agent.get(`/api/accounts/${accountId}/recurring-expenses`).expect(200);
   const linkedRecurring = recurring.body.data.find((item) => item.name === "Projet · Nouveau canapé");
   assert.ok(linkedRecurring);
   assert.equal(linkedRecurring.project_id, created.body.data.id);
-  const protectedDeletion = await request(app).delete(`/api/accounts/${accountId}/recurring-expenses/${linkedRecurring.id}`).expect(409);
+  const protectedDeletion = await agent.delete(`/api/accounts/${accountId}/recurring-expenses/${linkedRecurring.id}`).expect(409);
   assert.equal(protectedDeletion.body.error.code, "project_recurring_locked");
-  await request(app).delete(`/api/accounts/${accountId}/projects/${created.body.data.id}`).expect(204);
-  const recurringAfter = await request(app).get(`/api/accounts/${accountId}/recurring-expenses`).expect(200);
+  await agent.delete(`/api/accounts/${accountId}/projects/${created.body.data.id}`).expect(204);
+  const recurringAfter = await agent.get(`/api/accounts/${accountId}/recurring-expenses`).expect(200);
   assert.ok(!recurringAfter.body.data.some((item) => item.name === "Projet · Nouveau canapé"));
 });
 

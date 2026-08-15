@@ -86,23 +86,13 @@ Avec `AUTH_PROVIDER=kyros`, Nummo utilise le vrai Authorization Code Flow Kyros 
 
 Les variables requises figurent dans `.env.example`, notamment la version de protocole `4.4.0`, l'édition, le callback et le scope applicatif. Le `client_secret`, le secret JWT et les jetons restent exclusivement côté serveur.
 
-## Page de connexion locale
+## Page de connexion
 
-La page `/login` fonctionne dans deux modes :
+La page `/login` est entièrement déléguée à Kyros : « Continuer avec Kyros » amorce le Authorization Code Flow (`/auth/kyros` → `/authorize` → callback `/auth/callback`). Aucun compte n'est accessible sans une session Kyros valide.
 
-- sans `LOCAL_AUTH_PASSWORD`, elle indique honnêtement que le registre fonctionne en mode local ouvert ;
-- avec un mot de passe et un `SESSION_SECRET`, elle protège le registre et l'API avec une session signée en cookie HttpOnly.
+Si Kyros n'est pas configuré (`kyrosAuthConfigured()` est faux), le registre reste verrouillé et la page l'indique : le fournisseur bloque l'accès tant que la configuration est absente.
 
-Exemple :
-
-```env
-AUTH_PROVIDER=local
-LOCAL_AUTH_USERNAME=gestionnaire
-LOCAL_AUTH_PASSWORD=<mot-de-passe-fort>
-SESSION_SECRET=<secret-aleatoire-de-32-caracteres-minimum>
-```
-
-En production, utiliser HTTPS afin que le cookie de session porte automatiquement l'attribut `Secure`.
+En production, utiliser HTTPS afin que les cookies de session portent automatiquement l'attribut `Secure`.
 
 ## Structure
 

@@ -2,7 +2,6 @@
 import crypto from "node:crypto";
 import { Router } from "express";
 import { config } from "../config/env.js";
-import { authenticateLocal, createSessionToken, localAuthEnabled, localAuthRequested } from "../services/local-auth-service.js";
 import {
   clearKyrosCookies,
   createAuthorizationRequest,
@@ -13,20 +12,16 @@ import {
   setKyrosTokenCookies
 } from "../services/kyros-auth-service.js";
 import { readCookie } from "../middleware/auth.js";
-import { AppError } from "../utils/errors.js";
 
 export const authRouter = Router();
 
 authRouter.get("/status", (req, res) => {
-  const kyros = config.authProvider === "kyros";
-  const protectedMode = kyros ? kyrosAuthConfigured() : localAuthEnabled();
-  const misconfigured = kyros ? !kyrosAuthConfigured() : localAuthRequested() && !localAuthEnabled();
-  res.json({ data: { provider: config.authProvider, protected: protectedMode, misconfigured, authenticated: Boolean(req.identity), username: req.identity?.displayName || req.identity?.username || req.identity?.subject || null } });
+  const configured = kyrosAuthConfigured();
+  res.json({ data: { provider: config.authProvider, protected: Boolean(req.identity), misconfigured: !configured, authenticated: Boolean(req.identity), username: req.identity?.displayName || req.identity?.username || req.identity?.subject || null } });
 });
 
 authRouter.get("/kyros", (_req, res, next) => {
   try {
-    if (config.authProvider !== "kyros") throw new AppError(400, "La connexion Kyros n'est pas active.", "kyros_auth_disabled");
     const authorization = createAuthorizationRequest();
     res.cookie(kyrosCookies.state, authorization.state, { httpOnly: true, sameSite: "lax", secure: config.nodeEnv === "production", path: "/", maxAge: 10 * 60 * 1000 });
     res.redirect(authorization.url);
@@ -51,22 +46,8 @@ authRouter.get("/callback", async (req, res) => {
   }
 });
 
-authRouter.post("/local", (req, res, next) => {
-  if (config.authProvider !== "local") return next(new AppError(400, "La connexion locale n'est pas active.", "local_auth_disabled"));
-  if (!localAuthRequested()) return res.json({ data: { authenticated: true, mode: "unprotected-local" } });
-  if (!localAuthEnabled()) return next(new AppError(503, "SESSION_SECRET doit contenir au moins 32 caractères.", "local_auth_misconfigured"));
-  const username = String(req.body.username || "").slice(0, 120);
-  const password = String(req.body.password || "").slice(0, 500);
-  if (!authenticateLocal(username, password)) return next(new AppError(401, "Identifiant ou mot de passe incorrect.", "invalid_credentials"));
-  res.cookie("nummo_session", createSessionToken(), { httpOnly: true, sameSite: "lax", secure: config.nodeEnv === "production", maxAge: 12 * 60 * 60 * 1000, path: "/" });
-  res.json({ data: { authenticated: true } });
-});
-
 authRouter.post("/logout", async (req, res) => {
-  if (config.authProvider === "kyros") {
-    await revokeKyrosRefreshToken(readCookie(req.headers.cookie, kyrosCookies.refresh));
-    clearKyrosCookies(res);
-  }
-  res.clearCookie("nummo_session", { httpOnly: true, sameSite: "lax", secure: config.nodeEnv === "production", path: "/" });
+  await revokeKyrosRefreshToken(readCookie(req.headers.cookie, kyrosCookies.refresh));
+  clearKyrosCookies(res);
   res.status(204).end();
 });

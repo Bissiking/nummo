@@ -44,15 +44,9 @@
         <p id="access-copy">Vérification du mode de connexion…</p>
         <p id="login-error" class="login-error" role="alert"></p>
 
-        <form id="local-login-form" hidden>
-          <label>Identifiant<input name="username" autocomplete="username" required></label>
-          <label>Mot de passe<input name="password" type="password" autocomplete="current-password" required></label>
-          <button type="submit" class="login-button"><span>Se connecter</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg></button>
-        </form>
-
-        <a id="local-open" class="login-button" href="/" hidden><span>Accéder à Nummo</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg></a>
+        <a id="session-open" class="login-button" href="/" hidden><span>Accéder à Nummo</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg></a>
         <a id="kyros-login" class="login-button" href="/auth/kyros" hidden><span>Continuer avec Kyros</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg></a>
-        <div id="kyros-state" class="kyros-state" hidden><span>Kyros SSO</span><strong>Configuration requise</strong><small>Le faux SSO reste volontairement désactivé.</small></div>
+        <div id="kyros-state" class="kyros-state" hidden><span>Kyros SSO</span><strong>Configuration requise</strong><small>Le registre reste verrouillé tant que le fournisseur n'est pas configuré.</small></div>
         <p class="privacy-note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z"/></svg><span id="privacy-note-text">Nummo ne collecte aucun paiement et conserve les données dans sa base locale.</span></p>
       </div>
     </section>

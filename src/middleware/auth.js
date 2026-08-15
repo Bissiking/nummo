@@ -1,18 +1,10 @@
 // src/middleware/auth.js
 import { config } from "../config/env.js";
-import { localAuthEnabled, localAuthRequested, verifySessionToken } from "../services/local-auth-service.js";
 import { kyrosCookies, kyrosIdentity, refreshKyrosTokens, setKyrosTokenCookies, verifyKyrosAccessToken } from "../services/kyros-auth-service.js";
 import { AppError } from "../utils/errors.js";
 
-// La V1 locale fonctionne en mode mono-gestionnaire. Cette identité n'imite pas
-// Kyros : l'adaptateur SSO remplacera uniquement ce middleware quand il sera configuré.
 export async function attachIdentity(req, res, next) {
   req.identity = null;
-  if (config.authProvider === "local") {
-    if (!localAuthRequested()) req.identity = { provider: "local", subject: "local-manager", role: "manager" };
-    else if (localAuthEnabled()) req.identity = verifySessionToken(readCookie(req.headers.cookie, "nummo_session"));
-    return next();
-  }
   if (config.authProvider !== "kyros") return next();
 
   const accessToken = readCookie(req.headers.cookie, kyrosCookies.access);
