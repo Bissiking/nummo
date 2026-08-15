@@ -1,0 +1,865 @@
+<!-- public/index.html -->
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#11100f" />
+    <meta
+      name="description"
+      content="Nummo, registre personnel d'argent détenu et de dépenses."
+    />
+    <title>Nummo</title>
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="64x64"
+      href="/images/logo-64.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      type="image/png"
+      sizes="180x180"
+      href="/images/favicon-180.png"
+    />
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body>
+    <!--
+  THESIS: Un carnet de nuit qui sépare la caisse réelle du rythme des dépenses ; il refuse le dashboard bancaire en mosaïque uniforme.
+  OWN-WORLD: Encre brun-noir, ivoire, cuivre et sauge ; lignes de registre, grands chiffres éditoriaux et contrôles compacts.
+  STORY: Voir ce qui est détenu, comprendre ce qui a été dépensé, puis enregistrer l'opération suivante sans ambiguïté.
+  FIRST VIEWPORT: Rail sombre à gauche, solde et actions en tête, flux récent au centre, trajectoire mensuelle en bande sur la droite.
+  FORM: Carnet de gestion nocturne, troisième direction ancrée, seed 6febe9af.
+  FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+  -->
+    <a class="skip-link" href="#main">Aller au contenu</a>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Navigation principale">
+        <a class="brand" href="#dashboard" aria-label="Nummo, tableau de bord">
+          <img
+            class="brand-logo"
+            src="/images/logo.png"
+            alt=""
+            width="29"
+            height="29"
+          />
+          <span>Nummo</span>
+        </a>
+        <nav id="main-nav">
+          <a href="#dashboard" data-route="dashboard" class="active"
+            ><svg><use href="#i-grid" /></svg><span>Dashboard</span></a
+          >
+          <a href="#history" data-route="history"
+            ><svg><use href="#i-history" /></svg><span>Historique</span></a
+          >
+          <a href="#expenses" data-route="expenses"
+            ><svg><use href="#i-receipt" /></svg><span>Dépenses</span></a
+          >
+          <a href="#vehicle" data-route="vehicle"
+            ><svg><use href="#i-car" /></svg><span>Véhicule</span></a
+          >
+          <a href="#budgets" data-route="budgets"
+            ><svg><use href="#i-target" /></svg><span>Budgets</span></a
+          >
+          <a href="#projects" data-route="projects"
+            ><svg><use href="#i-project" /></svg><span>Projets</span></a
+          >
+          <a href="#recurring" data-route="recurring"
+            ><svg><use href="#i-repeat" /></svg><span>Récurrents</span></a
+          >
+          <a href="#statistics" data-route="statistics"
+            ><svg><use href="#i-chart" /></svg><span>Statistiques</span></a
+          >
+          <a href="#settings" data-route="settings"
+            ><svg><use href="#i-settings" /></svg><span>Paramètres</span></a
+          >
+        </nav>
+        <div class="account-switcher">
+          <span class="status-dot" aria-hidden="true"></span>
+          <div>
+            <strong id="account-name">Compte principal</strong
+            ><small id="account-source">Registre local</small>
+          </div>
+          <button
+            id="sidebar-logout"
+            class="logout-button"
+            hidden
+            aria-label="Se déconnecter"
+          >
+            <svg><use href="#i-logout" /></svg>
+          </button>
+        </div>
+      </aside>
+
+      <main id="main" tabindex="-1">
+        <header class="topbar">
+          <div>
+            <p id="today"></p>
+            <h1 id="page-title">Bonsoir</h1>
+          </div>
+          <div class="top-actions">
+            <button class="button secondary" data-open="transaction-dialog">
+              <svg><use href="#i-arrows" /></svg><span>Mouvement</span>
+            </button>
+            <button class="button primary" data-open="expense-dialog">
+              <svg><use href="#i-plus" /></svg><span>Ajouter une dépense</span>
+            </button>
+          </div>
+        </header>
+
+        <div id="loading" class="loading-state" role="status">
+          <span></span>Ouverture du registre…
+        </div>
+        <div id="app-error" class="error-banner" role="alert" hidden></div>
+
+        <section
+          class="view active"
+          data-view="dashboard"
+          aria-labelledby="page-title"
+        >
+          <div class="dashboard-ledger">
+            <article class="balance-panel">
+              <p>Argent détenu</p>
+              <strong id="balance">—</strong>
+              <div class="balance-detail">
+                <span><i class="in"></i><b id="deposits">—</b> déposés</span
+                ><span
+                  ><i class="out"></i><b id="withdrawals">—</b> retirés</span
+                >
+              </div>
+            </article>
+            <article class="month-panel">
+              <div>
+                <h2>Ce mois</h2>
+                <strong id="month-expenses">—</strong><span>dépensés</span>
+              </div>
+              <div class="projection">
+                <span>Estimation fin de mois</span><b id="projection">—</b
+                ><small>Projection, pas une dépense réelle</small>
+              </div>
+            </article>
+            <article class="pulse-panel">
+              <div class="section-heading">
+                <h2>Trajectoire</h2>
+                <a href="#statistics">Voir l'analyse</a>
+              </div>
+              <canvas
+                id="trend-chart"
+                height="180"
+                aria-label="Évolution mensuelle des dépenses"
+              ></canvas>
+              <div
+                id="trend-summary"
+                class="chart-summary"
+                aria-label="Valeurs des six derniers mois"
+              ></div>
+            </article>
+          </div>
+          <div class="dashboard-columns">
+            <section class="ledger-section">
+              <div class="section-heading">
+                <h2>Dernières opérations</h2>
+                <a href="#history">Tout afficher</a>
+              </div>
+              <div id="recent-list" class="operation-list"></div>
+            </section>
+            <aside class="insight-column">
+              <section>
+                <div class="section-heading">
+                  <h2>Répartition</h2>
+                  <span id="month-label"></span>
+                </div>
+                <div id="category-breakdown" class="breakdown-list"></div>
+              </section>
+              <section class="averages-strip">
+                <h2>Coût moyen</h2>
+                <div>
+                  <span>3 mois<b id="avg-3">—</b></span
+                  ><span>6 mois<b id="avg-6">—</b></span
+                  ><span>12 mois<b id="avg-12">—</b></span
+                  ><span>Depuis le début<b id="avg-all">—</b></span>
+                </div>
+              </section>
+              <section class="recurring-summary">
+                <h2>Charges prévues</h2>
+                <dl>
+                  <div>
+                    <dt>Ce mois</dt>
+                    <dd id="recurring-planned">—</dd>
+                  </div>
+                  <div>
+                    <dt>Déjà payées</dt>
+                    <dd id="recurring-paid">—</dd>
+                  </div>
+                  <div>
+                    <dt>Restantes</dt>
+                    <dd id="recurring-remaining">—</dd>
+                  </div>
+                </dl>
+              </section>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" data-view="history">
+          <div class="view-heading">
+            <div>
+              <h2>Historique complet</h2>
+              <p>Transactions et dépenses, réunies dans un même fil.</p>
+            </div>
+            <div class="export-actions">
+              <a id="export-transactions" class="button quiet" href="#"
+                >CSV transactions</a
+              ><a id="export-expenses" class="button quiet" href="#"
+                >CSV dépenses</a
+              >
+            </div>
+          </div>
+          <form id="history-filters" class="filter-bar history-filter-bar">
+            <label class="search-field"
+              ><svg><use href="#i-search" /></svg
+              ><input
+                name="search"
+                type="search"
+                placeholder="Rechercher une opération" /></label
+            ><label
+              >Type<select name="type">
+                <option value="">Toutes</option>
+                <option value="deposit">Dépôts</option>
+                <option value="withdrawal">Retraits</option>
+                <option value="expense">Dépenses</option>
+                <option value="vehicle">Véhicule</option>
+              </select></label
+            ><label
+              >Catégorie<select name="category_id" data-filter="true">
+                <option value="">Toutes catégories</option>
+              </select></label
+            ><label
+              >Montant min.<input
+                name="min_amount"
+                inputmode="decimal"
+                placeholder="0,00" /></label
+            ><label
+              >Montant max.<input
+                name="max_amount"
+                inputmode="decimal"
+                placeholder="0,00" /></label
+            ><label>Du<input name="from" type="date" /></label
+            ><label>Au<input name="to" type="date" /></label
+            ><button class="button secondary">Filtrer</button>
+          </form>
+          <div id="history-list" class="data-list"></div>
+        </section>
+
+        <section class="view" data-view="expenses">
+          <div class="view-heading">
+            <div>
+              <h2>Dépenses</h2>
+              <p>Les achats suivis, qu'ils touchent ou non au solde détenu.</p>
+            </div>
+            <button class="button primary" data-open="expense-dialog">
+              <svg><use href="#i-plus" /></svg>Nouvelle dépense
+            </button>
+          </div>
+          <div id="expense-list" class="data-list"></div>
+        </section>
+
+        <section class="view" data-view="vehicle">
+          <div class="view-heading">
+            <div>
+              <h2>Véhicule</h2>
+              <p>Le coût réel de la mobilité, du plein à l'entretien.</p>
+            </div>
+            <button
+              class="button primary"
+              data-open="expense-dialog"
+              data-vehicle="true"
+            >
+              <svg><use href="#i-plus" /></svg>Ajouter un coût
+            </button>
+          </div>
+          <div class="metric-ribbon">
+            <div><span>Ce mois</span><strong id="vehicle-month">—</strong></div>
+            <div>
+              <span>Cette année</span><strong id="vehicle-year">—</strong>
+            </div>
+            <div>
+              <span>Moyenne mensuelle</span
+              ><strong id="vehicle-average">—</strong>
+            </div>
+            <div>
+              <span>Prix moyen / litre</span
+              ><strong id="fuel-average">—</strong>
+            </div>
+          </div>
+          <div class="two-columns">
+            <section>
+              <div class="section-heading"><h2>Détail annuel</h2></div>
+              <div id="vehicle-categories" class="breakdown-list"></div>
+            </section>
+            <section>
+              <div class="section-heading"><h2>Derniers coûts</h2></div>
+              <div id="vehicle-expenses" class="operation-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" data-view="budgets">
+          <div class="view-heading">
+            <div>
+              <h2>Budgets</h2>
+              <p>Des repères mensuels, pas des barrières arbitraires.</p>
+            </div>
+            <button class="button primary" data-open="budget-dialog">
+              <svg><use href="#i-plus" /></svg>Nouveau budget
+            </button>
+          </div>
+          <div id="budget-list" class="budget-grid"></div>
+        </section>
+
+        <section class="view" data-view="projects">
+          <div class="view-heading">
+            <div>
+              <h2>Projets</h2>
+              <p>Comparer plusieurs rythmes, choisir une mensualité, puis suivre ce qui reste réellement à financer.</p>
+            </div>
+            <button class="button primary" data-open="project-dialog">
+              <svg><use href="#i-plus" /></svg>Nouveau projet
+            </button>
+          </div>
+          <div class="project-overview" aria-label="Résumé des projets">
+            <div><span>Objectifs actifs</span><strong id="projects-active">0</strong></div>
+            <div><span>Disponible confirmé</span><strong id="projects-saved">0,00 €</strong></div>
+            <div><span>Versements projetés</span><strong id="projects-projected">0,00 €</strong></div>
+            <div><span>Reste à financer</span><strong id="projects-remaining">0,00 €</strong></div>
+          </div>
+          <div id="project-list" class="project-ledger"></div>
+        </section>
+
+        <section class="view" data-view="recurring">
+          <div class="view-heading">
+            <div>
+              <h2>Dépenses récurrentes</h2>
+              <p>Ce qui revient, et ce qui reste encore à payer.</p>
+            </div>
+            <button class="button primary" data-open="recurring-dialog">
+              <svg><use href="#i-plus" /></svg>Nouvelle récurrence
+            </button>
+          </div>
+          <div id="recurring-list" class="data-list"></div>
+        </section>
+
+        <section class="view" data-view="statistics">
+          <div class="view-heading">
+            <div>
+              <h2>Statistiques</h2>
+              <p>Lire les tendances sans perdre le fil des opérations.</p>
+            </div>
+          </div>
+          <div class="stat-grid">
+            <article>
+              <span>Dépenses cette année</span
+              ><strong id="year-expenses">—</strong>
+            </article>
+            <article>
+              <span>Charges fixes ce mois</span
+              ><strong id="fixed-month">—</strong>
+            </article>
+            <article>
+              <span>Dépenses variables</span
+              ><strong id="variable-month">—</strong>
+            </article>
+            <article>
+              <span>Évolution mensuelle</span
+              ><strong id="month-change">—</strong>
+            </article>
+          </div>
+          <section class="chart-section">
+            <div class="section-heading"><h2>Douze derniers mois</h2></div>
+            <canvas
+              id="stats-chart"
+              height="300"
+              aria-label="Graphique des dépenses sur douze mois"
+            ></canvas>
+          </section>
+          <div
+            id="stats-chart-summary"
+            class="chart-summary chart-summary-wide"
+            aria-label="Valeurs des douze derniers mois"
+          ></div>
+          <section class="comparison-section">
+            <div class="section-heading"><h2>Analyse par catégorie</h2></div>
+            <form id="category-analysis-form" class="filter-bar">
+              <label
+                >Période<select name="period">
+                  <option value="current">Mois actuel</option>
+                  <option value="previous">Mois précédent</option>
+                  <option value="year">Année actuelle</option>
+                  <option value="custom">Période personnalisée</option>
+                </select></label
+              ><label>Du<input type="date" name="from" /></label
+              ><label>Au<input type="date" name="to" /></label
+              ><button class="button secondary">Analyser</button>
+            </form>
+            <div id="category-analysis" class="breakdown-list"></div>
+          </section>
+          <section class="comparison-section">
+            <div class="section-heading"><h2>Comparer deux mois</h2></div>
+            <form id="comparison-form" class="filter-bar">
+              <label
+                >Premier mois<input
+                  type="month"
+                  name="month_a"
+                  required /></label
+              ><label
+                >Second mois<input
+                  type="month"
+                  name="month_b"
+                  required /></label
+              ><button class="button secondary">Comparer</button>
+            </form>
+            <div id="comparison-table"></div>
+          </section>
+        </section>
+
+        <section class="view" data-view="settings">
+          <div class="view-heading">
+            <div>
+              <h2>Paramètres</h2>
+              <p>Personnaliser le registre et préparer ses connexions.</p>
+            </div>
+          </div>
+          <div class="settings-layout">
+            <section>
+              <div class="section-heading">
+                <h2>Catégories</h2>
+                <button class="button quiet" data-open="category-dialog">
+                  Ajouter
+                </button>
+              </div>
+              <div id="category-list" class="category-tree"></div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <nav class="mobile-nav" aria-label="Navigation mobile">
+      <a href="#dashboard" data-route="dashboard" class="active"
+        ><svg><use href="#i-grid" /></svg><span>Accueil</span></a
+      >
+      <a href="#history" data-route="history"
+        ><svg><use href="#i-history" /></svg><span>Historique</span></a
+      >
+      <button data-open="transaction-dialog" aria-label="Ajouter un mouvement">
+        <svg><use href="#i-arrows" /></svg>
+      </button>
+      <button data-open="expense-dialog" class="mobile-expense">
+        <svg><use href="#i-plus" /></svg><span>Dépense</span>
+      </button>
+      <button id="mobile-more">
+        <svg><use href="#i-grid" /></svg><span>Plus</span>
+      </button>
+    </nav>
+
+    <dialog id="transaction-dialog">
+      <form method="dialog" data-form="transaction">
+        <div class="dialog-head">
+          <div>
+            <h2>Ajouter un mouvement</h2>
+            <p>Cette opération modifie l'argent détenu.</p>
+          </div>
+          <button type="button" value="cancel" class="icon-button" aria-label="Fermer">
+            <svg><use href="#i-close" /></svg>
+          </button>
+        </div>
+        <div class="segmented">
+          <label
+            ><input type="radio" name="type" value="deposit" checked /><span
+              >Dépôt</span
+            ></label
+          ><label
+            ><input type="radio" name="type" value="withdrawal" /><span
+              >Retrait</span
+            ></label
+          >
+        </div>
+        <label
+          >Montant<input
+            name="amount"
+            inputmode="decimal"
+            placeholder="0,00"
+            required /></label
+        ><label
+          >Description<input
+            name="description"
+            maxlength="180"
+            required
+            placeholder="Ex. Dépôt du mois"
+        /></label>
+        <div class="form-row">
+          <label
+            >Date<input name="transaction_date" type="date" required /></label
+          ><label
+            >Note<input name="note" maxlength="2000" placeholder="Facultatif"
+          /></label>
+        </div>
+        <p class="form-error" role="alert"></p>
+        <div class="dialog-actions">
+          <button type="button" value="cancel" class="button secondary">Annuler</button
+          ><button value="submit" class="button primary">Enregistrer</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="expense-dialog">
+      <form method="dialog" data-form="expense">
+        <div class="dialog-head">
+          <div>
+            <h2>Ajouter une dépense</h2>
+            <p>Suivie avec ou sans impact sur le solde.</p>
+          </div>
+          <button type="button" value="cancel" class="icon-button" aria-label="Fermer">
+            <svg><use href="#i-close" /></svg>
+          </button>
+        </div>
+        <div class="form-row">
+          <label
+            >Montant<input
+              name="amount"
+              inputmode="decimal"
+              placeholder="0,00"
+              required /></label
+          ><label>Date<input name="expense_date" type="date" required /></label>
+        </div>
+        <label
+          >Description<input
+            name="description"
+            maxlength="180"
+            required
+            placeholder="Ex. Plein de carburant" /></label
+        ><label>Catégorie<select name="category_id" required></select></label>
+        <div class="form-row">
+          <label
+            >Nature<select name="expense_type">
+              <option value="VARIABLE">Variable</option>
+              <option value="FIXED">Fixe</option>
+            </select></label
+          ><label
+            >Moyen de paiement<input
+              name="payment_method"
+              placeholder="Facultatif"
+          /></label>
+        </div>
+        <label
+          >Note<textarea
+            name="note"
+            rows="2"
+            maxlength="2000"
+            placeholder="Facultatif"
+          ></textarea></label
+        ><label class="switch-row"
+          ><input type="checkbox" name="deduct_from_balance" /><span
+            ><b>Déduire du solde détenu</b
+            ><small>Un retrait lié sera créé automatiquement.</small></span
+          ></label
+        ><label class="switch-row"
+          ><input type="checkbox" name="is_recurring" /><span
+            ><b>Dépense récurrente</b
+            ><small>La marquer comme charge régulière payée.</small></span
+          ></label
+        >
+        <fieldset id="fuel-fields">
+          <legend>Détails carburant <small>facultatifs</small></legend>
+          <div class="form-row">
+            <label
+              >Carburant<select name="fuel_type">
+                <option value="">Non précisé</option>
+                <option>Essence</option>
+                <option>Gasoil</option>
+                <option>E85</option>
+                <option>GPL</option>
+                <option>Électricité</option>
+                <option>Autre</option>
+              </select></label
+            ><label
+              >Litres<input name="fuel_liters" inputmode="decimal"
+            /></label>
+          </div>
+          <div class="form-row">
+            <label
+              >Prix / litre<input
+                name="fuel_price_per_liter"
+                inputmode="decimal" /></label
+            ><label
+              >Kilométrage<input name="vehicle_mileage" inputmode="numeric"
+            /></label>
+          </div>
+        </fieldset>
+        <p class="form-error" role="alert"></p>
+        <div class="dialog-actions">
+          <button type="button" value="cancel" class="button secondary">Annuler</button
+          ><button value="submit" class="button primary">Enregistrer</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="budget-dialog">
+      <form method="dialog" data-form="budget">
+        <div class="dialog-head">
+          <div>
+            <h2>Nouveau budget</h2>
+            <p>Définir un repère mensuel par catégorie.</p>
+          </div>
+          <button type="button" value="cancel" class="icon-button" aria-label="Fermer">
+            <svg><use href="#i-close" /></svg>
+          </button>
+        </div>
+        <label>Catégorie<select name="category_id" required></select></label
+        ><label
+          >Montant mensuel<input
+            name="amount"
+            inputmode="decimal"
+            required
+            placeholder="0,00"
+        /></label>
+        <p class="form-error" role="alert"></p>
+        <div class="dialog-actions">
+          <button type="button" value="cancel" class="button secondary">Annuler</button
+          ><button value="submit" class="button primary">
+            Créer le budget
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="project-dialog" class="project-dialog">
+      <form method="dialog" id="project-form">
+        <div class="dialog-head">
+          <div>
+            <h2>Préparer un projet</h2>
+            <p>Posez l’objectif une fois, puis comparez les rythmes avant de vous engager.</p>
+          </div>
+          <button type="button" value="cancel" class="icon-button" aria-label="Fermer">
+            <svg><use href="#i-close" /></svg>
+          </button>
+        </div>
+        <label>Nom du projet<input name="name" required maxlength="180" placeholder="Ex. Voyage au Japon" /></label>
+        <div class="form-row">
+          <label>Budget cible<input name="target_amount" inputmode="decimal" required placeholder="3 000,00" /></label>
+          <label>Déjà mis de côté<input name="initial_amount" inputmode="decimal" value="0" /></label>
+        </div>
+        <div class="form-row">
+          <label>Calcul des formules<select name="calculation_mode">
+            <option value="auto">Automatique · 3 rythmes</option>
+            <option value="custom">Manuel · mes hypothèses</option>
+          </select></label>
+          <label>Première mensualité<input name="first_due_date" type="date" required /></label>
+        </div>
+        <div id="project-auto-fields">
+          <label>Mensualité de référence<input name="monthly_amount" inputmode="decimal" placeholder="200,00" /></label>
+        </div>
+        <div id="project-custom-fields" class="form-row" hidden>
+          <label>Durée souhaitée<input name="custom_months" type="number" min="1" max="1200" placeholder="12 mois" /></label>
+          <label>Ou mensualité choisie<input name="custom_monthly_amount" inputmode="decimal" placeholder="250,00" /></label>
+        </div>
+        <fieldset>
+          <legend>Progression</legend>
+          <div class="project-mode-choice">
+            <label><input type="radio" name="contribution_mode" value="automatic" checked /><span><b>Automatique</b><small>Les échéances passées sont comptabilisées à l’ouverture de Nummo.</small></span></label>
+            <label><input type="radio" name="contribution_mode" value="manual" /><span><b>Manuelle</b><small>Vous confirmez chaque mensualité réellement mise de côté.</small></span></label>
+          </div>
+        </fieldset>
+        <div id="project-scenarios" class="scenario-ruler" hidden></div>
+        <p class="form-error" role="alert"></p>
+        <div class="dialog-actions">
+          <button type="button" value="cancel" class="button secondary">Annuler</button>
+          <button value="calculate" class="button primary">Calculer les formules</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="recurring-dialog">
+      <form method="dialog" data-form="recurring">
+        <div class="dialog-head">
+          <div>
+            <h2>Nouvelle récurrence</h2>
+            <p>Prévoir une charge à venir.</p>
+          </div>
+          <button type="button" value="cancel" class="icon-button" aria-label="Fermer">
+            <svg><use href="#i-close" /></svg>
+          </button>
+        </div>
+        <label
+          >Nom<input
+            name="name"
+            required
+            maxlength="180"
+            placeholder="Ex. Assurance voiture"
+        /></label>
+        <div class="form-row">
+          <label
+            >Montant<input name="amount" inputmode="decimal" required /></label
+          ><label
+            >Prochaine échéance<input name="next_due_date" type="date" required
+          /></label>
+        </div>
+        <label>Catégorie<select name="category_id" required></select></label>
+        <div class="form-row">
+          <label
+            >Fréquence<select name="frequency">
+              <option value="monthly">Mensuelle</option>
+              <option value="weekly">Hebdomadaire</option>
+              <option value="quarterly">Trimestrielle</option>
+              <option value="semiannual">Semestrielle</option>
+              <option value="annual">Annuelle</option>
+              <option value="custom">Tous les X mois</option>
+            </select></label
+          ><label
+            >Intervalle<input name="interval" type="number" min="1" value="1"
+          /></label>
+        </div>
+        <p class="form-error" role="alert"></p>
+        <div class="dialog-actions">
+          <button type="button" value="cancel" class="button secondary">Annuler</button
+          ><button value="submit" class="button primary">Enregistrer</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="category-dialog">
+      <form method="dialog" data-form="category">
+        <div class="dialog-head">
+          <div>
+            <h2>Nouvelle catégorie</h2>
+            <p>Créer une catégorie propre à ce compte.</p>
+          </div>
+          <button type="button" value="cancel" class="icon-button" aria-label="Fermer">
+            <svg><use href="#i-close" /></svg>
+          </button>
+        </div>
+        <label>Nom<input name="name" required maxlength="80" /></label
+        ><label
+          >Sous-catégorie de<select name="parent_id">
+            <option value="">Aucune, catégorie principale</option>
+          </select></label
+        ><label
+          >Nature<select name="type">
+            <option value="VARIABLE">Variable</option>
+            <option value="FIXED">Fixe</option>
+          </select></label
+        >
+        <p class="form-error" role="alert"></p>
+        <div class="dialog-actions">
+          <button type="button" value="cancel" class="button secondary">Annuler</button
+          ><button value="submit" class="button primary">Ajouter</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="confirm-dialog" class="confirm-dialog">
+      <form method="dialog">
+        <h2>Confirmer la suppression</h2>
+        <p id="confirm-message">Cette action est définitive.</p>
+        <div class="dialog-actions">
+          <button type="button" value="cancel" class="button secondary">Annuler</button
+          ><button value="confirm" class="button danger">Supprimer</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="project-contribution-dialog" class="confirm-dialog">
+      <form method="dialog">
+        <h2>Confirmer la mensualité</h2>
+        <p id="project-contribution-message">Cette mensualité sera ajoutée au projet et avancera la prochaine échéance.</p>
+        <div class="dialog-actions">
+          <button type="button" value="cancel" class="button secondary">Annuler</button>
+          <button value="confirm" class="button primary">Confirmer le versement</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="nav-dialog" class="nav-dialog">
+      <div class="dialog-head">
+        <h2>Toutes les vues</h2>
+        <button class="icon-button" data-close-nav aria-label="Fermer">
+          <svg><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <nav>
+        <a href="#expenses"
+          ><svg><use href="#i-receipt" /></svg>Dépenses</a
+        ><a href="#vehicle"
+          ><svg><use href="#i-car" /></svg>Véhicule</a
+        ><a href="#budgets"
+          ><svg><use href="#i-target" /></svg>Budgets</a
+        ><a href="#projects"
+          ><svg><use href="#i-project" /></svg>Projets</a
+        ><a href="#recurring"
+          ><svg><use href="#i-repeat" /></svg>Récurrents</a
+        ><a href="#statistics"
+          ><svg><use href="#i-chart" /></svg>Statistiques</a
+        ><a href="#settings"
+          ><svg><use href="#i-settings" /></svg>Paramètres</a
+        >
+      </nav>
+    </dialog>
+    <div id="toast-region" class="toast-region" aria-live="polite"></div>
+
+    <svg class="svg-defs" aria-hidden="true">
+      <defs>
+        <symbol id="i-grid" viewBox="0 0 24 24">
+          <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />
+        </symbol>
+        <symbol id="i-history" viewBox="0 0 24 24">
+          <path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6M4 4v4.6h4.6M12 7v5l3 2" />
+        </symbol>
+        <symbol id="i-receipt" viewBox="0 0 24 24">
+          <path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6" />
+        </symbol>
+        <symbol id="i-car" viewBox="0 0 24 24">
+          <path
+            d="m5 16-1-2 2-5h12l2 5-1 2M4 14h16v5h-3v-2H7v2H4zM8 14h.01M16 14h.01"
+          />
+        </symbol>
+        <symbol id="i-target" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="8" />
+          <circle cx="12" cy="12" r="3" />
+        </symbol>
+        <symbol id="i-project" viewBox="0 0 24 24">
+          <path d="M5 20V5h9l1.5 3H20v8h-5.5L13 13H5M5 20H3" />
+        </symbol>
+        <symbol id="i-repeat" viewBox="0 0 24 24">
+          <path
+            d="m17 3 3 3-3 3M4 11V9a3 3 0 0 1 3-3h13M7 21l-3-3 3-3M20 13v2a3 3 0 0 1-3 3H4"
+          />
+        </symbol>
+        <symbol id="i-chart" viewBox="0 0 24 24">
+          <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+        </symbol>
+        <symbol id="i-settings" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="3" />
+          <path
+            d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.8-1L14.4 3h-4l-.3 3a7 7 0 0 0-1.8 1L6 6.1 4 9.5 6 11a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.8 1l.3 3h4l.3-3a7 7 0 0 0 1.8-1l2.4 1 2-3.4-2-1.5a7 7 0 0 0 .1-1z"
+          />
+        </symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24">
+          <path d="M12 5v14M5 12h14" />
+        </symbol>
+        <symbol id="i-arrows" viewBox="0 0 24 24">
+          <path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4" />
+        </symbol>
+        <symbol id="i-search" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="7" />
+          <path d="m20 20-4-4" />
+        </symbol>
+        <symbol id="i-close" viewBox="0 0 24 24">
+          <path d="m6 6 12 12M18 6 6 18" />
+        </symbol>
+        <symbol id="i-logout" viewBox="0 0 24 24">
+          <path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10" />
+        </symbol>
+      </defs>
+    </svg>
+    <script type="module" src="/js/app.js"></script>
+  </body>
+</html>

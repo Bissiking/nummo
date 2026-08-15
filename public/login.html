@@ -1,0 +1,62 @@
+<!-- public/login.html -->
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#11100f">
+  <meta name="description" content="Connexion à Nummo.">
+  <title>Connexion · Nummo</title>
+  <link rel="icon" type="image/png" sizes="64x64" href="/images/logo-64.png">
+  <link rel="apple-touch-icon" type="image/png" sizes="180x180" href="/images/favicon-180.png">
+  <link rel="stylesheet" href="/css/login.css">
+</head>
+<body>
+  <!--
+  THESIS: La connexion est le fermoir du carnet, pas un portail bancaire générique.
+  OWN-WORLD: Encre chaude, papier ivoire, cuivre de marge, traits de registre et contrôles compacts.
+  STORY: Comprendre le rôle privé de Nummo, identifier le mode actif, puis ouvrir le registre en une action.
+  FIRST VIEWPORT: Monogramme et phrase de confiance à gauche, accès concentré dans une colonne calme à droite.
+  FORM: Forme nommée « fermoir scindé » ; seed key nummo-ledger-clasp-v1, extension directe de DESIGN.md.
+  FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+  -->
+  <main class="login-shell">
+    <section class="login-story" aria-labelledby="login-title">
+      <a class="login-brand" href="/login" aria-label="Nummo">
+        <img class="brand-logo" src="/images/logo.png" alt="" width="31" height="31">
+        <span>Nummo</span>
+      </a>
+      <div class="story-copy">
+        <h1 id="login-title">Retrouver le fil<br>de vos comptes.</h1>
+        <p>Un registre privé pour distinguer l’argent détenu, les dépenses suivies et ce qui reste à prévoir.</p>
+      </div>
+      <dl class="trust-line">
+        <div><dt>Paiements</dt><dd>Aucun</dd></div>
+        <div><dt>Données</dt><dd>Locales</dd></div>
+        <div><dt>Accès</dt><dd>Privé</dd></div>
+      </dl>
+    </section>
+
+    <section class="login-access" aria-labelledby="access-title">
+      <div class="access-panel">
+        <span class="access-mark" aria-hidden="true"></span>
+        <h2 id="access-title">Ouvrir le registre</h2>
+        <p id="access-copy">Vérification du mode de connexion…</p>
+        <p id="login-error" class="login-error" role="alert"></p>
+
+        <form id="local-login-form" hidden>
+          <label>Identifiant<input name="username" autocomplete="username" required></label>
+          <label>Mot de passe<input name="password" type="password" autocomplete="current-password" required></label>
+          <button type="submit" class="login-button"><span>Se connecter</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg></button>
+        </form>
+
+        <a id="local-open" class="login-button" href="/" hidden><span>Accéder à Nummo</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg></a>
+        <a id="kyros-login" class="login-button" href="/auth/kyros" hidden><span>Continuer avec Kyros</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg></a>
+        <div id="kyros-state" class="kyros-state" hidden><span>Kyros SSO</span><strong>Configuration requise</strong><small>Le faux SSO reste volontairement désactivé.</small></div>
+        <p class="privacy-note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z"/></svg><span id="privacy-note-text">Nummo ne collecte aucun paiement et conserve les données dans sa base locale.</span></p>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="/js/login.js"></script>
+</body>
+</html>

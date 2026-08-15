@@ -1,0 +1,29 @@
+{
+  "_comment": "package.json",
+  "name": "nummo",
+  "version": "1.0.0",
+  "description": "Registre personnel d'argent détenu et de dépenses",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "rebuild:native": "npm rebuild better-sqlite3",
+    "test": "AUTH_PROVIDER=local LOCAL_AUTH_PASSWORD= SESSION_SECRET= node --test --test-concurrency=1 --test-isolation=none",
+    "check": "node --check src/server.js && node --check src/routes/auth.js && node --check src/middleware/auth.js && node --check src/services/local-auth-service.js && node --check src/services/kyros-auth-service.js && node --check src/services/projects-service.js && node --check public/js/app.js && node --check public/js/login.js"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@fontsource-variable/sora": "^5.1.1",
+    "better-sqlite3": "^11.8.1",
+    "compression": "^1.7.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0"
+  },
+  "devDependencies": {
+    "supertest": "^7.0.0"
+  }
+}
