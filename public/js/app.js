@@ -7,6 +7,8 @@ const state = {
   budgets: [],
   recurring: [],
   projects: [],
+  incomeSources: [],
+  advice: null,
   projectDraft: null,
   transactions: [],
   expenses: [],
@@ -40,6 +42,8 @@ const pageTitles = {
   budgets: "Budgets",
   projects: "Projets",
   recurring: "Récurrents",
+  import: "Importer",
+  conseil: "Conseil",
   statistics: "Statistiques",
   settings: "Paramètres",
 };
@@ -97,6 +101,7 @@ async function initialize() {
       budgets: data.budgets,
       recurring: data.recurring,
       projects: data.projects,
+      incomeSources: data.income_sources,
       transactions: data.recent_transactions,
       expenses: data.recent_expenses,
     });
@@ -230,6 +235,7 @@ async function route() {
     if (valid === "budgets") renderBudgets();
     if (valid === "projects") await loadProjects();
     if (valid === "recurring") renderRecurring();
+    if (valid === "conseil") await loadAdvice();
     if (valid === "statistics") {
       requestAnimationFrame(() =>
         drawBarChart($("#stats-chart"), state.dashboard.monthly_trend),
@@ -349,6 +355,118 @@ function renderRecurring() {
         "Ajoutez les charges qui reviennent régulièrement.",
       );
   bindRowActions();
+}
+
+async function loadAdvice() {
+  const [advice, sources] = await Promise.all([
+    api(`/api/accounts/${state.accountId}/advice`),
+    api(`/api/accounts/${state.accountId}/income-sources`),
+  ]);
+  state.advice = advice;
+  state.incomeSources = sources;
+  renderAdvice();
+  renderIncomeSources();
+}
+
+const adviceStatus = {
+  comfortable: { label: "Confortable", detail: "Le conseil laisse une marge confortable." },
+  tight: { label: "Serré", detail: "La marge est mince : le plaisir reste proche du plafond conseillé." },
+  over: { label: "Au-delà du conseil", detail: "Vos dépenses plaisir dépassent le budget suggéré." },
+  negative: { label: "Budget négatif", detail: "Vos charges dépassent vos revenus : il ne reste rien pour le plaisir." },
+  unknown: { label: "Revenus inconnus", detail: "Ajoutez vos sources de revenus pour obtenir un conseil." },
+};
+
+function renderAdvice() {
+  const advice = state.advice;
+  if (!advice) return;
+  const status = adviceStatus[advice.status] || adviceStatus.unknown;
+  const budgetKnown = advice.pleasure_budget_cents != null;
+  setText("advice-budget", budgetKnown ? money(advice.pleasure_budget_cents) : "—");
+  setText("advice-status", status.detail);
+  const incomeKnown = advice.income.average_month_cents != null;
+  const incomeEl = $("#advice-income");
+  incomeEl.innerHTML = incomeKnown
+    ? `${money(advice.income.average_month_cents)}<small>sur ${advice.income.months} mois</small>`
+    : "—";
+  setText("advice-fixed", money(advice.fixed_month_cents));
+  setText("advice-essential", money(advice.essential_month_cents));
+  setText("advice-savings", money(advice.savings_month_cents));
+  setText("advice-pleasure-month", money(advice.pleasure_spent_month_cents));
+  setText("advice-pleasure-average", money(advice.pleasure_average_month_cents));
+  setText("advice-margin", advice.margin_cents == null ? "—" : money(advice.margin_cents));
+  const card = $("#advice-card");
+  card.dataset.status = advice.status;
+}
+
+function renderIncomeSources() {
+  const sources = state.incomeSources || [];
+  $("#income-source-list").innerHTML = sources.length
+    ? sources
+        .map(
+          (source) =>
+            `<article class="operation-row"><span class="operation-mark deposit">+</span><div class="operation-copy"><b>${escapeHtml(source.description)}</b><small>Compté comme revenu dans les dépôts.</small></div><div class="operation-actions"><button class="delete-action edit-action" data-edit-kind="income-source" data-id="${source.id}">Modifier</button><button class="delete-action" data-delete-kind="income-source" data-id="${source.id}">Supprimer</button></div></article>`,
+        )
+        .join("")
+    : emptyState(
+        "Aucune source de revenu",
+        "Ajoutez « Salaire », « IK »… pour calculer votre revenu moyen.",
+      );
+  bindRowActions();
+}
+
+const importFrequencyLabels = {
+  weekly: "hebdomadaire",
+  monthly: "mensuelle",
+  quarterly: "trimestrielle",
+  semiannual: "semestrielle",
+  annual: "annuelle",
+};
+
+async function runImport() {
+  const fileInput = $("#import-file");
+  const file = fileInput.files?.[0];
+  if (!file) return showError("Choisissez d'abord un fichier CSV.");
+  const button = $("#import-run");
+  button.disabled = true;
+  try {
+    const csv = await file.text();
+    const result = await api(`/api/accounts/${state.accountId}/import`, {
+      method: "POST",
+      body: JSON.stringify({ csv }),
+    });
+    renderImportResult(result);
+    $("#import-result").scrollIntoView({
+      behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+      block: "nearest",
+    });
+    await refreshData();
+  } catch (error) {
+    showError(error.message);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function renderImportResult(result) {
+  const el = $("#import-result");
+  el.hidden = false;
+  el.innerHTML = `<div class="metric-ribbon">
+      <div><span>Opérations importées</span><strong>${result.imported}</strong></div>
+      <div><span>Doublons ignorés</span><strong>${result.skipped_duplicates}</strong></div>
+      <div><span>Lignes lues</span><strong>${result.lines}</strong></div>
+      <div><span>Récurrents créés</span><strong>${result.recurring.length}</strong></div>
+    </div>${
+      result.recurring.length
+        ? `<section class="comparison-section"><div class="section-heading"><h2>Récurrents créés</h2><a href="#recurring">Voir les récurrents</a></div><div class="data-list">${result.recurring
+            .map(
+              (item) =>
+                `<article class="operation-row"><span class="operation-mark expense"><svg><use href="#i-repeat"/></svg></span><div class="operation-copy"><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.category_name)} · ${importFrequencyLabels[item.frequency] || item.frequency} · prochaine le ${dateLabel(item.next_due_date)}</small></div><span class="operation-amount">${money(item.amount_cents)}</span></article>`,
+            )
+            .join("")}</div></section>`
+        : ""
+    }`;
 }
 
 async function loadProjects() {
@@ -545,6 +663,11 @@ function configureForms() {
     "change",
     updateFuelFields,
   );
+  $("#import-file").addEventListener("change", () => {
+    const name = $("#import-file").files?.[0]?.name;
+    $("#import-file-name").textContent = name || "Choisir un fichier .csv";
+  });
+  $("#import-run").addEventListener("click", runImport);
   $("#mobile-more").addEventListener("click", () => $("#nav-dialog").show());
   $("[data-close-nav]").addEventListener("click", () =>
     $("#nav-dialog").close(),
@@ -634,6 +757,7 @@ async function submitForm(event) {
         active: true,
       }),
     },
+    "income-source": { path: "income-sources", body: () => data },
     category: { path: "categories", body: () => data },
   };
   const config = configs[type];
@@ -663,6 +787,7 @@ async function refreshData() {
     budgets: data.budgets,
     recurring: data.recurring,
     projects: data.projects,
+    incomeSources: data.income_sources,
     transactions: data.recent_transactions,
     expenses: data.recent_expenses,
   });
@@ -692,6 +817,7 @@ async function confirmDelete(kind, id) {
     budget: state.budgets,
     recurring: state.recurring,
     project: state.projects,
+    "income-source": state.incomeSources,
     category: state.categories,
   };
   const item = collections[kind]?.find((entry) => entry.id === Number(id));
@@ -721,6 +847,7 @@ async function confirmDelete(kind, id) {
     budget: "budgets",
     recurring: "recurring-expenses",
     project: "projects",
+    "income-source": "income-sources",
     category: "categories",
   };
   try {
@@ -740,6 +867,7 @@ function editItem(kind, id) {
     expense: state.expenses,
     budget: state.budgets,
     recurring: state.recurring,
+    "income-source": state.incomeSources,
     category: state.categories,
   };
   const item = collections[kind]?.find((entry) => entry.id === Number(id));
@@ -749,6 +877,7 @@ function editItem(kind, id) {
     expense: "expense-dialog",
     budget: "budget-dialog",
     recurring: "recurring-dialog",
+    "income-source": "income-source-dialog",
     category: "category-dialog",
   };
   openDialog(dialogIds[kind]);
@@ -784,6 +913,7 @@ function editItem(kind, id) {
       frequency: item.frequency,
       interval: item.interval,
     },
+    "income-source": { description: item.description },
     category: { name: item.name, parent_id: item.parent_id, type: item.type },
   };
   for (const [name, value] of Object.entries(mappings[kind])) {

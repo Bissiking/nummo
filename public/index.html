@@ -62,11 +62,17 @@
           <a href="#budgets" data-route="budgets"
             ><svg><use href="#i-target" /></svg><span>Budgets</span></a
           >
+          <a href="#conseil" data-route="conseil"
+            ><svg><use href="#i-compass" /></svg><span>Conseil</span></a
+          >
           <a href="#projects" data-route="projects"
             ><svg><use href="#i-project" /></svg><span>Projets</span></a
           >
           <a href="#recurring" data-route="recurring"
             ><svg><use href="#i-repeat" /></svg><span>Récurrents</span></a
+          >
+          <a href="#import" data-route="import"
+            ><svg><use href="#i-upload" /></svg><span>Importer</span></a
           >
           <a href="#statistics" data-route="statistics"
             ><svg><use href="#i-chart" /></svg><span>Statistiques</span></a
@@ -317,6 +323,54 @@
           <div id="budget-list" class="budget-grid"></div>
         </section>
 
+        <section class="view" data-view="conseil">
+          <div class="view-heading">
+            <div>
+              <h2>Conseil</h2>
+              <p>Combien mettre de côté pour le plaisir, à partir de vos revenus et charges réels.</p>
+            </div>
+          </div>
+          <article id="advice-card" class="advice-card">
+            <div class="advice-value">
+              <span>Budget plaisir conseillé</span>
+              <strong id="advice-budget">—</strong>
+              <small id="advice-status"></small>
+            </div>
+            <dl class="advice-breakdown">
+              <div><dt>Revenu moyen</dt><dd id="advice-income">—</dd></div>
+              <div><dt>Charges fixes</dt><dd id="advice-fixed">—</dd></div>
+              <div><dt>Essentiel</dt><dd id="advice-essential">—</dd></div>
+              <div><dt>Épargne projets</dt><dd id="advice-savings">—</dd></div>
+            </dl>
+          </article>
+          <div class="metric-ribbon">
+            <div>
+              <span>Plaisir ce mois</span
+              ><strong id="advice-pleasure-month">—</strong>
+            </div>
+            <div>
+              <span>Moyenne plaisir</span
+              ><strong id="advice-pleasure-average">—</strong>
+            </div>
+            <div>
+              <span>Marge</span><strong id="advice-margin">—</strong>
+            </div>
+          </div>
+          <section class="comparison-section">
+            <div class="section-heading">
+              <h2>Sources de revenus</h2>
+              <button class="button quiet" data-open="income-source-dialog">
+                Ajouter
+              </button>
+            </div>
+            <p class="muted-note">
+              Tout dépôt dont la description contient un de ces textes est
+              compté comme revenu (ex. « Salaire », « IK »).
+            </p>
+            <div id="income-source-list" class="data-list"></div>
+          </section>
+        </section>
+
         <section class="view" data-view="projects">
           <div class="view-heading">
             <div>
@@ -347,6 +401,32 @@
             </button>
           </div>
           <div id="recurring-list" class="data-list"></div>
+        </section>
+
+        <section class="view" data-view="import">
+          <div class="view-heading">
+            <div>
+              <h2>Importer un relevé</h2>
+              <p>Déposez l'export CSV de votre banque, les opérations rejoignent le registre.</p>
+            </div>
+          </div>
+          <div class="import-panel">
+            <label class="import-drop" for="import-file">
+              <svg><use href="#i-upload" /></svg>
+              <span id="import-file-name">Choisir un fichier .csv</span>
+              <input id="import-file" type="file" accept=".csv,.txt,text/csv,text/plain" />
+            </label>
+            <p class="muted-note">
+              Format attendu : <code>Date;Date de valeur;Débit;Crédit;Libellé;Solde</code>.
+              Les prélèvements et virements récurrents (PRLV, VIR, abonnements…) sont
+              détectés et proposés dans les récurrents, avec une catégorie devinée
+              (impôts, énergie, streaming…).
+            </p>
+            <button id="import-run" class="button primary">
+              <svg><use href="#i-upload" /></svg>Importer le relevé
+            </button>
+          </div>
+          <div id="import-result" class="import-result" hidden></div>
         </section>
 
         <section class="view" data-view="statistics">
@@ -727,6 +807,32 @@
       </form>
     </dialog>
 
+    <dialog id="income-source-dialog">
+      <form method="dialog" data-form="income-source">
+        <div class="dialog-head">
+          <div>
+            <h2>Source de revenu</h2>
+            <p>Texte présent dans la description de vos dépôts de revenus.</p>
+          </div>
+          <button type="button" value="cancel" class="icon-button" aria-label="Fermer">
+            <svg><use href="#i-close" /></svg>
+          </button>
+        </div>
+        <label
+          >Description<input
+            name="description"
+            required
+            maxlength="120"
+            placeholder="Ex. Salaire" /></label
+        >
+        <p class="form-error" role="alert"></p>
+        <div class="dialog-actions">
+          <button type="button" value="cancel" class="button secondary">Annuler</button
+          ><button value="submit" class="button primary">Enregistrer</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="category-dialog">
       <form method="dialog" data-form="category">
         <div class="dialog-head">
@@ -789,12 +895,16 @@
           ><svg><use href="#i-receipt" /></svg>Dépenses</a
         ><a href="#vehicle"
           ><svg><use href="#i-car" /></svg>Véhicule</a
-        ><a href="#budgets"
+        >        <a href="#budgets"
           ><svg><use href="#i-target" /></svg>Budgets</a
+        ><a href="#conseil"
+          ><svg><use href="#i-compass" /></svg>Conseil</a
         ><a href="#projects"
           ><svg><use href="#i-project" /></svg>Projets</a
         ><a href="#recurring"
           ><svg><use href="#i-repeat" /></svg>Récurrents</a
+        ><a href="#import"
+          ><svg><use href="#i-upload" /></svg>Importer</a
         ><a href="#statistics"
           ><svg><use href="#i-chart" /></svg>Statistiques</a
         ><a href="#settings"
@@ -824,6 +934,10 @@
           <circle cx="12" cy="12" r="8" />
           <circle cx="12" cy="12" r="3" />
         </symbol>
+        <symbol id="i-compass" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9" />
+          <path d="m15.5 8.5-2 5-5 2 2-5z" />
+        </symbol>
         <symbol id="i-project" viewBox="0 0 24 24">
           <path d="M5 20V5h9l1.5 3H20v8h-5.5L13 13H5M5 20H3" />
         </symbol>
@@ -831,6 +945,9 @@
           <path
             d="m17 3 3 3-3 3M4 11V9a3 3 0 0 1 3-3h13M7 21l-3-3 3-3M20 13v2a3 3 0 0 1-3 3H4"
           />
+        </symbol>
+        <symbol id="i-upload" viewBox="0 0 24 24">
+          <path d="M12 16V4m0 0L7 9m5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" />
         </symbol>
         <symbol id="i-chart" viewBox="0 0 24 24">
           <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />

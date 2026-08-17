@@ -1,7 +1,7 @@
 {
   "_comment": "package.json",
   "name": "nummo",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Registre personnel d'argent détenu et de dépenses",
   "type": "module",
   "main": "src/server.js",

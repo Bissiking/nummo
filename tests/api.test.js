@@ -146,6 +146,85 @@ test("l'adaptateur Kyros valide le handshake et les claims du jeton", () => {
   assert.equal(child.stdout, "ok");
 });
 
+test("l'algorithme de conseil moyenne les sources de revenus et calcule un budget plaisir", async () => {
+  const dateOfMonth = (offset) => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1 - offset).padStart(2, "0")}-15`;
+  };
+  const categories = (await agent.get(`/api/accounts/${accountId}/categories`)).body.data;
+  const fuel = categories.find((category) => category.name === "Carburant");
+  const loisirs = categories.find((category) => category.name === "Loisirs" && !category.parent_id);
+  const subscriptions = categories.find((category) => category.name === "Abonnements" && !category.parent_id);
+
+  const incomeSources = await agent.post(`/api/accounts/${accountId}/income-sources`).send({ description: "Salaire" }).expect(201);
+  assert.equal(incomeSources.body.data.description, "Salaire");
+  await agent.post(`/api/accounts/${accountId}/income-sources`).send({ description: "IK" }).expect(201);
+  await agent.post(`/api/accounts/${accountId}/income-sources`).send({ description: "Salaire" }).expect(409);
+  for (const offset of [0, 1, 2]) {
+    await agent.post(`/api/accounts/${accountId}/transactions`).send({ type: "deposit", amount_cents: 200000, description: `Salaire mois -${offset}`, transaction_date: dateOfMonth(offset) }).expect(201);
+    await agent.post(`/api/accounts/${accountId}/transactions`).send({ type: "deposit", amount_cents: 40000, description: `IK mois -${offset}`, transaction_date: dateOfMonth(offset) }).expect(201);
+  }
+  await agent.post(`/api/accounts/${accountId}/recurring-expenses`).send({ name: "Abonnements", category_id: subscriptions.id, amount_cents: 60000, frequency: "monthly", interval: 1, next_due_date: dateOfMonth(0), active: true }).expect(201);
+  await agent.post(`/api/accounts/${accountId}/expenses`).send({ category_id: fuel.id, amount_cents: 20000, description: "Essentiel", expense_date: dateOfMonth(0), expense_type: "VARIABLE" }).expect(201);
+  await agent.post(`/api/accounts/${accountId}/expenses`).send({ category_id: loisirs.id, amount_cents: 15000, description: "Sortie plaisir", expense_date: dateOfMonth(0), expense_type: "VARIABLE" }).expect(201);
+  await agent.post(`/api/accounts/${accountId}/expenses`).send({ category_id: loisirs.id, amount_cents: 15000, description: "Sortie plaisir", expense_date: dateOfMonth(1), expense_type: "VARIABLE" }).expect(201);
+
+  const advice = await agent.get(`/api/accounts/${accountId}/advice`).expect(200);
+  const data = advice.body.data;
+  assert.equal(data.income.sources.length, 2);
+  assert.equal(data.income.months, 3);
+  assert.equal(data.income.average_month_cents, 240000);
+  assert.equal(data.fixed_month_cents, 60000);
+  assert.equal(data.essential_month_cents, 20000);
+  assert.equal(data.savings_month_cents, 0);
+  assert.equal(data.pleasure_budget_cents, 160000);
+  assert.equal(data.pleasure_average_month_cents, 15000);
+  assert.equal(data.pleasure_spent_month_cents, 15000);
+  assert.equal(data.margin_cents, 145000);
+  assert.equal(data.status, "comfortable");
+
+  const bootstrap = await agent.get(`/api/accounts/${accountId}/bootstrap`).expect(200);
+  assert.equal(bootstrap.body.data.income_sources.length, 2);
+});
+
+test("l'import CSV crée les transactions, ignore les doublons et détecte les récurrents catégorisés", async () => {
+  const csv = [
+    "Date;Date de valeur;Débit;Crédit;Libellé;Solde",
+    "20/06/2023;20/06/2023;-13,49;;PRLV SEPA NETFLIX;500,00",
+    "20/07/2023;20/07/2023;-13,49;;PRLV SEPA NETFLIX;486,51",
+    "20/08/2023;20/08/2023;-13,49;;PRLV SEPA NETFLIX;473,02",
+    "15/06/2023;15/06/2023;-500,00;;PRLV SEPA DGFIP;1000,00",
+    "15/07/2023;15/07/2023;-500,00;;PRLV SEPA DGFIP;500,00",
+    "15/08/2023;15/08/2023;-500,00;;PRLV SEPA DGFIP;0,00",
+    "10/06/2023;10/06/2023;-27,89;;PAIEMENT CB DELIVEROO;127,89",
+    "05/06/2023;05/06/2023;;1500,00;VIR SEPA SALAIRE;1500,00"
+  ].join("\n");
+  const result = await agent.post(`/api/accounts/${accountId}/import`).send({ csv }).expect(200);
+  const data = result.body.data;
+  assert.equal(data.lines, 8);
+  assert.equal(data.imported, 8);
+  assert.equal(data.skipped_duplicates, 0);
+  assert.equal(data.recurring.length, 2);
+  const netflix = data.recurring.find((item) => item.name === "PRLV SEPA NETFLIX");
+  const impots = data.recurring.find((item) => item.name === "PRLV SEPA DGFIP");
+  assert.ok(netflix);
+  assert.equal(netflix.amount_cents, 1349);
+  assert.equal(netflix.frequency, "monthly");
+  assert.equal(netflix.category_name, "Streaming");
+  assert.ok(impots);
+  assert.equal(impots.amount_cents, 50000);
+  assert.equal(impots.category_name, "Administratif");
+
+  const transactions = await agent.get(`/api/accounts/${accountId}/transactions`).expect(200);
+  assert.ok(transactions.body.data.some((item) => item.description === "PRLV SEPA NETFLIX" && item.amount_cents === 1349 && item.type === "withdrawal"));
+  assert.ok(transactions.body.data.some((item) => item.description === "VIR SEPA SALAIRE" && item.type === "deposit"));
+
+  const duplicate = await agent.post(`/api/accounts/${accountId}/import`).send({ csv }).expect(200);
+  assert.equal(duplicate.body.data.imported, 0);
+  assert.equal(duplicate.body.data.skipped_duplicates, 8);
+  assert.equal(duplicate.body.data.recurring.length, 0);
+});
+
 test("l'API transforme une formule projet en récurrence suivie", async () => {
   const calculated = await agent.post("/api/projects/calculate").send({ target_cents: 100000, initial_cents: 10000, monthly_cents: 15000, first_due_date: "2026-09-15", calculation_mode: "auto" }).expect(200);
   const selected = calculated.body.data.scenarios.find((item) => item.key === "balanced");

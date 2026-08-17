@@ -30,6 +30,7 @@
 }
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 body {
   margin: 0;
@@ -859,6 +860,133 @@ textarea:focus {
 .stat-grid {
   margin-bottom: 50px;
 }
+.advice-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  border: 1px solid var(--line);
+  margin-bottom: 44px;
+}
+.advice-value {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 32px;
+  background: linear-gradient(150deg, #201914 0%, #171411 72%);
+}
+.advice-value > span,
+.advice-value small {
+  color: var(--faint);
+  font-size: 10px;
+}
+.advice-value strong {
+  font-size: clamp(40px, 4.6vw, 62px);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+  font-weight: 520;
+  font-variant-numeric: tabular-nums;
+  margin: 10px 0 12px;
+}
+.advice-card[data-status="negative"] .advice-value strong {
+  color: var(--red);
+}
+.advice-card[data-status="over"] .advice-value strong,
+.advice-card[data-status="tight"] .advice-value strong {
+  color: var(--amber);
+}
+.advice-breakdown {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 0;
+  padding: 0;
+}
+.advice-breakdown > div {
+  padding: 26px 24px;
+}
+.advice-breakdown > div + div {
+  border-left: 1px solid var(--line);
+}
+.advice-breakdown > div:nth-child(-n + 2) {
+  border-bottom: 1px solid var(--line);
+}
+.advice-breakdown dt {
+  color: var(--faint);
+  font-size: 10px;
+}
+.advice-breakdown dd {
+  margin: 6px 0 0;
+  font-size: 21px;
+  letter-spacing: -0.03em;
+  font-weight: 550;
+}
+.advice-breakdown dd small {
+  display: block;
+  color: var(--faint);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0;
+  margin-top: 3px;
+}
+.muted-note {
+  color: var(--faint);
+  font-size: 12px;
+  margin: -8px 0 18px;
+}
+.import-panel {
+  border: 1px solid var(--line);
+  padding: 26px;
+}
+.import-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 44px 20px;
+  border: 1px dashed var(--line);
+  background: var(--ink-3);
+  color: var(--faint);
+  cursor: pointer;
+  text-align: center;
+}
+.import-drop svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: var(--copper-bright);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.import-drop input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.import-panel .button {
+  margin-top: 22px;
+}
+.import-result {
+  margin-top: 44px;
+}
+.import-result .metric-ribbon {
+  margin-bottom: 24px;
+}
+.import-result .muted-note {
+  margin-top: 0;
+}
+@media (max-width: 760px) {
+  .advice-card {
+    grid-template-columns: 1fr;
+  }
+  .advice-breakdown {
+    grid-template-columns: 1fr;
+  }
+  .advice-breakdown > div {
+    border-bottom: 1px solid var(--line);
+    border-left: 0 !important;
+  }
+}
 .chart-section {
   border-bottom: 1px solid var(--line);
   padding-bottom: 45px;
@@ -945,7 +1073,8 @@ textarea:focus {
 dialog {
   width: min(580px, calc(100vw - 28px));
   max-height: calc(100vh - 30px);
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   border: 0;
   border-radius: 16px;
   background: #181613;
@@ -959,6 +1088,15 @@ dialog::backdrop {
 }
 dialog form {
   padding: 26px;
+}
+dialog form > * {
+  min-width: 0;
+}
+dialog .form-row > *,
+dialog input,
+dialog select,
+dialog textarea {
+  min-width: 0;
 }
 dialog h2 {
   margin: 0;

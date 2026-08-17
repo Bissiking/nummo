@@ -1,7 +1,9 @@
 // src/controllers/api-controller.js
 import * as accountsRepository from "../repositories/accounts-repository.js";
+import * as adviceService from "../services/advice-service.js";
 import * as categoriesService from "../services/categories-service.js";
 import * as expensesService from "../services/expenses-service.js";
+import * as importService from "../services/import-service.js";
 import * as planningService from "../services/planning-service.js";
 import * as projectsService from "../services/projects-service.js";
 import * as statisticsService from "../services/statistics-service.js";
@@ -23,7 +25,7 @@ export const accounts = (req, res) => {
 };
 export const bootstrap = (req, res) => {
   const id = accountId(req);
-  res.json({ data: { account: accountsRepository.findAccountForIdentity(id, req.identity), categories: categoriesService.list(id), dashboard: statisticsService.getStatistics(id), budgets: planningService.listBudgets(id), recurring: planningService.listRecurring(id), projects: projectsService.list(id), recent_transactions: transactionsService.list(id, {}).slice(0, 6), recent_expenses: expensesService.list(id, {}).slice(0, 6) } });
+  res.json({ data: { account: accountsRepository.findAccountForIdentity(id, req.identity), categories: categoriesService.list(id), dashboard: statisticsService.getStatistics(id), budgets: planningService.listBudgets(id), recurring: planningService.listRecurring(id), projects: projectsService.list(id), income_sources: adviceService.listIncomeSources(id), recent_transactions: transactionsService.list(id, {}).slice(0, 6), recent_expenses: expensesService.list(id, {}).slice(0, 6) } });
 };
 export const dashboard = (req, res) => res.json({ data: statisticsService.getStatistics(accountId(req)) });
 export const vehicle = (req, res) => res.json({ data: statisticsService.getVehicleStatistics(accountId(req)) });
@@ -71,6 +73,12 @@ export const createProject = (req, res) => res.status(201).json({ data: projects
 export const contributeProject = (req, res) => res.json({ data: projectsService.contribute(accountId(req), positiveId(req.params.id, "Projet")) });
 export const deleteProject = (req, res) => { projectsService.remove(accountId(req), positiveId(req.params.id, "Projet")); res.status(204).end(); };
 
+export const advice = (req, res) => res.json({ data: adviceService.getAdvice(accountId(req)) });
+export const listIncomeSources = (req, res) => res.json({ data: adviceService.listIncomeSources(accountId(req)) });
+export const createIncomeSource = (req, res) => res.status(201).json({ data: adviceService.createIncomeSource(accountId(req), req.body) });
+export const updateIncomeSource = (req, res) => res.json({ data: adviceService.updateIncomeSource(accountId(req), positiveId(req.params.id), req.body) });
+export const deleteIncomeSource = (req, res) => { adviceService.deleteIncomeSource(accountId(req), positiveId(req.params.id)); res.status(204).end(); };
+
 export const history = (req, res) => {
   const id = accountId(req);
   const amount = (value, label) => {
@@ -91,3 +99,8 @@ export const history = (req, res) => {
 
 export const exportTransactions = (req, res) => { res.type("text/csv").attachment("transactions-nummo.csv").send(exportService.transactionsCsv(accountId(req))); };
 export const exportExpenses = (req, res) => { res.type("text/csv").attachment("depenses-nummo.csv").send(exportService.expensesCsv(accountId(req))); };
+export const importCsv = (req, res) => {
+  const csv = typeof req.body?.csv === "string" ? req.body.csv : "";
+  if (!csv.trim()) throw new AppError(400, "Le relevé CSV est vide.", "empty_import");
+  res.json({ data: importService.importCsv(accountId(req), csv) });
+};

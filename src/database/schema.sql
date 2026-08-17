@@ -76,6 +76,15 @@ CREATE TABLE IF NOT EXISTS recurring_expenses (
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS income_sources (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  description TEXT NOT NULL CHECK(length(trim(description)) BETWEEN 1 AND 120),
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(account_id, description)
+);
+
 CREATE TABLE IF NOT EXISTS budgets (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -124,5 +133,6 @@ CREATE INDEX IF NOT EXISTS idx_expenses_account_date ON expenses(account_id, exp
 CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category_id);
 CREATE INDEX IF NOT EXISTS idx_recurring_account_due ON recurring_expenses(account_id, next_due_date);
 CREATE INDEX IF NOT EXISTS idx_budgets_account ON budgets(account_id);
+CREATE INDEX IF NOT EXISTS idx_income_sources_account ON income_sources(account_id);
 CREATE INDEX IF NOT EXISTS idx_projects_account_status ON projects(account_id, status);
 CREATE INDEX IF NOT EXISTS idx_project_contributions_project ON project_contributions(project_id, due_date);

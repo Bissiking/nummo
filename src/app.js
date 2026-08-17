@@ -14,7 +14,7 @@ export function createApp() {
   app.disable("x-powered-by");
   app.use(helmet({ contentSecurityPolicy: { directives: { "script-src": ["'self'"], "style-src": ["'self'"], "img-src": ["'self'", "data:"] } } }));
   app.use(compression());
-  app.use(express.json({ limit: "64kb" }));
+  app.use(express.json({ limit: "2mb" }));
   app.use(attachIdentity);
   app.get("/health", (_req, res) => res.json({ status: "ok", app: "nummo" }));
   app.use("/auth", authRouter);

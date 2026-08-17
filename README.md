@@ -10,9 +10,11 @@ Nummo est un registre personnel permettant de distinguer l'argent réellement d�
 - catégories système et personnalisées ;
 - suivi du véhicule et des données de carburant ;
 - budgets mensuels, charges récurrentes et projection de fin de mois ;
+- conseil mensuel de budget plaisir : revenu moyen issu de sources de revenus configurables (salaire, indemnités…), charges fixes, dépenses essentielles et épargne projets ;
 - projets avec budget cible, formules mensuelles automatiques ou personnalisées, récurrence liée et progression automatique ou manuelle ;
 - statistiques sur 3, 6 et 12 mois, comparaisons et graphiques ;
 - historique filtrable et exports CSV ;
+- import de relevé bancaire CSV (séparé par « ; ») avec détection automatique des prélèvements et virements récurrents, catégorisés par mots-clés (impôts, énergie, streaming…) ;
 - API REST et connexion Kyros SSO par Authorization Code Flow.
 - registre automatiquement isolé par utilisateur Kyros : chacun ne voit et ne modifie que ses propres données.
 
@@ -66,6 +68,12 @@ GET    /api/accounts
 GET    /api/accounts/:accountId/bootstrap
 GET    /api/accounts/:accountId/dashboard
 GET    /api/accounts/:accountId/history
+GET    /api/accounts/:accountId/advice
+
+GET    /api/accounts/:accountId/income-sources
+POST   /api/accounts/:accountId/income-sources
+PUT    /api/accounts/:accountId/income-sources/:id
+DELETE /api/accounts/:accountId/income-sources/:id
 
 GET    /api/accounts/:accountId/transactions
 POST   /api/accounts/:accountId/transactions
@@ -78,7 +86,7 @@ PUT    /api/accounts/:accountId/expenses/:id
 DELETE /api/accounts/:accountId/expenses/:id
 ```
 
-Les catégories, budgets et dépenses récurrentes suivent le même schéma CRUD. Les exports sont disponibles via `/export/transactions.csv` et `/export/expenses.csv`.
+Les catégories, budgets et dépenses récurrentes suivent le même schéma CRUD. Les exports sont disponibles via `/export/transactions.csv` et `/export/expenses.csv`. Un relevé bancaire s'importe via `POST /api/accounts/:accountId/import` avec le CSV brut dans le champ `csv` (colonnes `Date;Date de valeur;Débit;Crédit;Libellé;Solde`) ; les doublons sont ignorés et les récurrents détectés sont créés avec une catégorie devinée par mots-clés.
 
 ## Kyros SSO
 
